@@ -5,12 +5,12 @@ using Whisper.net.Ggml;
 using Whisper.net.LibraryLoader;
 using Whisper.net;
 
-public partial class Form1 : Form, IDisposable
+public partial class MainForm : Form, IDisposable
 {
     private readonly WhisperProcessor processor;
     private readonly WhisperFactory whisperFactory;
 
-    public Form1()
+    public MainForm()
     {
         var ggmlType = GgmlType.LargeV3;
         var modelFileName = "ggml-large-v3.bin";

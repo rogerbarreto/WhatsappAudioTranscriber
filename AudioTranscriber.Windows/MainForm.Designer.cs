@@ -28,7 +28,7 @@
             this.btnTranscribeAudio.TabIndex = 0;
             this.btnTranscribeAudio.Text = "Transcribe Audio";
             this.btnTranscribeAudio.UseVisualStyleBackColor = true;
-            this.btnTranscribeAudio.Click += this.button1_Click;
+            this.btnTranscribeAudio.Click += this.Button1_Click;
             //
             // textBox1
             //

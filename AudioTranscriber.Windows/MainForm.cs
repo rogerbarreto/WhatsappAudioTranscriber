@@ -29,7 +29,7 @@ public partial class MainForm : Form, IDisposable
         this.whisperFactory = WhisperFactory.FromPath(modelFileName);
 
         // This section creates the processor object which is used to process the audio file, it uses language `auto` to detect the language of the audio file.
-        this.processor = whisperFactory.CreateBuilder()
+        this.processor = this.whisperFactory.CreateBuilder()
             .WithLanguage("auto")
             .Build();
 
@@ -44,15 +44,15 @@ public partial class MainForm : Form, IDisposable
             this.whisperFactory.Dispose();
         }
 
-        if (disposing && (components != null))
+        if (disposing && (this.components != null))
         {
-            components.Dispose();
+            this.components.Dispose();
         }
 
         base.Dispose(disposing);
     }
 
-    private async void button1_Click(object sender, EventArgs e)
+    private async void Button1_Click(object sender, EventArgs e)
     {
         await this.ManualImplementation();
     }
@@ -107,12 +107,12 @@ public partial class MainForm : Form, IDisposable
             // This section creates the whisperFactory object which is used to create the processor object.
             using var fileStream = File.OpenRead(wavFileName);
 
-            textBox1.Text = "";
+            this.textBox1.Text = "";
 
             // This section processes the audio file and prints the results (start time, end time and text) to the console.
-            await foreach (var result in processor.ProcessAsync(fileStream))
+            await foreach (var result in this.processor.ProcessAsync(fileStream))
             {
-                textBox1.Text += $" {result.Text}";
+                this.textBox1.Text += $" {result.Text}";
             }
         }
     }

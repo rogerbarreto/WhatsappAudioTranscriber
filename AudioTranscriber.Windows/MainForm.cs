@@ -7,41 +7,32 @@ using Whisper.net;
 
 public partial class MainForm : Form, IDisposable
 {
-    private readonly WhisperProcessor processor;
-    private readonly WhisperFactory whisperFactory;
+    private WhisperProcessor? processor;
+    private WhisperFactory? whisperFactory;
+    private bool isModelLoaded = false;
 
     public MainForm()
     {
-        var ggmlType = GgmlType.LargeV3;
-        var modelFileName = "ggml-large-v3.bin";
-
-        RuntimeOptions.RuntimeLibraryOrder = [
-            RuntimeLibrary.Cuda
-        ];
-
-        // This section detects whether the "ggml-base.bin" file exists in our project disk. If it doesn't, it downloads it from the internet
-        if (!File.Exists(modelFileName))
-        {
-            DownloadModel(modelFileName, ggmlType).GetAwaiter().GetResult();
-        }
-
-        // This section creates the whisperFactory object which is used to create the processor object.
-        this.whisperFactory = WhisperFactory.FromPath(modelFileName);
-
-        // This section creates the processor object which is used to process the audio file, it uses language `auto` to detect the language of the audio file.
-        this.processor = this.whisperFactory.CreateBuilder()
-            .WithLanguage("auto")
-            .Build();
-
         this.InitializeComponent();
+        this.Load += this.MainForm_Load;
+        this.KeyPreview = true; // Enable key preview to capture key events
+    }
+
+    private async void MainForm_Load(object? sender, EventArgs e)
+    {
+        if (!this.isModelLoaded)
+        {
+            // Start loading the model asynchronously after the form is loaded
+            await this.LoadModelAsync();
+        }
     }
 
     protected override void Dispose(bool disposing)
     {
         if (disposing)
         {
-            this.processor.Dispose();
-            this.whisperFactory.Dispose();
+            this.processor?.Dispose();
+            this.whisperFactory?.Dispose();
         }
 
         if (disposing && (this.components != null))
@@ -52,8 +43,30 @@ public partial class MainForm : Form, IDisposable
         base.Dispose(disposing);
     }
 
+    private async void MainForm_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Control && e.KeyCode == Keys.V)
+        {
+            if (!this.isModelLoaded)
+            {
+                MessageBox.Show(this, "Model is still loading. Please wait for the model to finish loading before transcribing audio.", "Model Loading", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            await this.ManualImplementation();
+
+            e.Handled = true; // Mark the event as handled
+        }
+    }
+
     private async void Button1_Click(object sender, EventArgs e)
     {
+        if (!this.isModelLoaded)
+        {
+            MessageBox.Show(this, "Model is still loading. Please wait for the model to finish loading before transcribing audio.", "Model Loading", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
         await this.ManualImplementation();
     }
 
@@ -65,10 +78,10 @@ public partial class MainForm : Form, IDisposable
         // Get the file from the clipboard
         var data = Clipboard.GetDataObject();
 
-        if (data is null 
-            || !data.GetDataPresent(DataFormats.FileDrop) 
-            || data.GetData(DataFormats.FileDrop) is not string[] files 
-            || files is not { Length: > 0 } )
+        if (data is null
+            || !data.GetDataPresent(DataFormats.FileDrop)
+            || data.GetData(DataFormats.FileDrop) is not string[] files
+            || files is not { Length: > 0 })
         {
             MessageBox.Show("No file found in clipboard");
             return;
@@ -109,17 +122,73 @@ public partial class MainForm : Form, IDisposable
 
             this.textBox1.Text = "";
 
+            this.processor ??= this.whisperFactory?.CreateBuilder().WithLanguage("auto").Build();
+
             // This section processes the audio file and prints the results (start time, end time and text) to the console.
-            await foreach (var result in this.processor.ProcessAsync(fileStream))
+            if (this.processor != null)
             {
-                this.textBox1.Text += $" {result.Text}";
+                await foreach (var result in this.processor.ProcessAsync(fileStream))
+                {
+                    this.textBox1.Text += $" {result.Text}";
+                }
             }
         }
     }
 
-    private static async Task DownloadModel(string fileName, GgmlType ggmlType)
+    private async Task LoadModelAsync()
     {
-        Console.WriteLine($"Downloading Model {fileName}");
+        var progressDialog = new ProgressDialog();
+        progressDialog.Show(this);
+        progressDialog.SetIndeterminate(true);
+
+        try
+        {
+            // Run the heavy work on a background thread
+            await Task.Run(async () =>
+            {
+                var ggmlType = GgmlType.LargeV3;
+                var modelFileName = "ggml-large-v3.bin";
+
+                RuntimeOptions.RuntimeLibraryOrder = [
+                    RuntimeLibrary.Cuda
+                ];
+
+                progressDialog.UpdateProgress(0, "Loading model...");
+
+                if (!File.Exists(modelFileName))
+                {
+                    await DownloadModel(modelFileName, ggmlType);
+                }
+
+                progressDialog.UpdateProgress(50, "Loading model...");
+
+                this.whisperFactory = WhisperFactory.FromPath(modelFileName);
+
+                progressDialog.UpdateProgress(100, "Model loaded successfully!");
+                this.isModelLoaded = true;
+            });
+
+            // Close progress dialog after a brief delay
+            await Task.Delay(500);
+        }
+        catch (Exception ex)
+        {
+            var errorMessage = $"Failed to load model: {ex.Message}";
+            if (ex.InnerException != null)
+            {
+                errorMessage += $"\n\nDetails: {ex.InnerException.Message}";
+            }
+            MessageBox.Show(this, errorMessage, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+        finally
+        {
+            progressDialog?.Close();
+            progressDialog?.Dispose();
+        }
+    }
+
+    static async Task DownloadModel(string fileName, GgmlType ggmlType)
+    {
         using var modelStream = await WhisperGgmlDownloader.GetGgmlModelAsync(ggmlType);
         using var fileWriter = File.OpenWrite(fileName);
         await modelStream.CopyToAsync(fileWriter);

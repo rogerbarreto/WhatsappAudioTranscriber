@@ -34,12 +34,13 @@ A Windows application that transcribes WhatsApp audio messages to text using Whi
 
 - [Whisper.net](https://github.com/sandrohanea/whisper.net) - .NET wrapper for OpenAI's Whisper model
 - [FFmpeg](https://ffmpeg.org/) - For audio conversion
-- NVidia GPU with CUDA support
+- NVidia GPU with CUDA support (`winget install "FFmpeg (Essentials Build)"`)
 - [CUDA Toolkit (>= 12.1)](https://developer.nvidia.com/cuda-downloads)
 
 ## Technical Details
 
 The application uses:
+
 - Whisper.net for speech recognition
 - FFmpeg for audio conversion
 - Windows Forms for the user interface
